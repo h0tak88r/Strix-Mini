@@ -243,10 +243,17 @@ def _format_tool_result(tool_name: str, result: Any) -> tuple[str, list[dict[str
         final_result_str = f"Tool {tool_name} executed successfully"
     else:
         final_result_str = str(result_str)
-        if len(final_result_str) > 10000:
-            start_part = final_result_str[:4000]
-            end_part = final_result_str[-4000:]
-            final_result_str = start_part + "\n\n... [middle content truncated] ...\n\n" + end_part
+        # Use STRIX_MAX_TOOL_OUTPUT_CHARS if set, otherwise default to 10000
+        _raw = os.environ.get("STRIX_MAX_TOOL_OUTPUT_CHARS") or Config.get("strix_max_tool_output_chars") or ""
+        try:
+            max_chars = int(_raw)
+        except (ValueError, TypeError):
+            max_chars = 10000
+        half = max(max_chars // 2, 500)
+        if len(final_result_str) > max_chars:
+            start_part = final_result_str[:half]
+            end_part = final_result_str[-half:]
+            final_result_str = start_part + f"\n\n... [output truncated — {len(final_result_str)} chars total, showing first+last {half}] ...\n\n" + end_part
 
     observation_xml = (
         f"<tool_result>\n<tool_name>{tool_name}</tool_name>\n"

@@ -42,6 +42,8 @@ class Config:
     strix_single_agent = "false"
     strix_compact_prompt = "false"
     strix_check_mode = "false"
+    strix_max_tool_output_chars = None   # chars per tool result (default 10000)
+    strix_max_output_tokens = None       # max LLM output tokens
 
     # Runtime Configuration
     strix_image = "ghcr.io/usestrix/strix-sandbox:0.1.13"
