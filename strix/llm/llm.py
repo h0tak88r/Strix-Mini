@@ -26,9 +26,29 @@ from strix.utils.resource_paths import get_strix_resource_path
 litellm.drop_params = True
 litellm.modify_params = True
 
-_THINKING_BLOCK_RE = re.compile(r"<think(?:ing)?[^>]*>.*?</think(?:ing)?>", re.DOTALL)
+# Matches completed thinking blocks — supports:
+#   <think>...</think>, <thinking>...</thinking>   (standard / DeepSeek / Qwen)
+#   <thought>...</thought>                          (Gemma 4 variant)
+#   <|channel>...</|channel>                        (Gemma 4 channel blocks)
+_THINKING_BLOCK_RE = re.compile(
+    r"(?:"
+    r"<think(?:ing)?[^>]*>.*?</think(?:ing)?>"          # <think> / <thinking>
+    r"|<thought[^>]*>.*?</thought>"                      # <thought>
+    r"|<\|channel\b[^|>]*\|?>.*?</?\|?channel\|?>"      # <|channel>...</|channel>
+    r"|\|channel\|.*?\|/channel\|"                       # pipe-pipe variant
+    r")",
+    re.DOTALL | re.IGNORECASE,
+)
+
+# Matches completed OR still-open thinking blocks (used during streaming)
 _THINKING_BLOCK_OR_OPEN_RE = re.compile(
-    r"<think(?:ing)?[^>]*>.*?(?:</think(?:ing)?>|\Z)", re.DOTALL
+    r"(?:"
+    r"<think(?:ing)?[^>]*>.*?(?:</think(?:ing)?>|\Z)"
+    r"|<thought[^>]*>.*?(?:</thought>|\Z)"
+    r"|<\|channel\b[^|>]*\|?>.*?(?:</?\|?channel\|?>|\Z)"
+    r"|\|channel\|.*?(?:\|/channel\||\Z)"
+    r")",
+    re.DOTALL | re.IGNORECASE,
 )
 
 
@@ -113,11 +133,20 @@ class LLM:
             skill_content = load_skills(skills_to_load)
             env.globals["get_skill"] = lambda name: skill_content.get(name, "")
 
-            result = env.get_template("system_prompt.jinja").render(
+            template_name = "system_prompt_compact.jinja" if getattr(self.config, "compact_prompt", False) else "system_prompt.jinja"
+            import os
+            check_mode = os.getenv("STRIX_CHECK_MODE", "").lower() in ("true", "1", "yes")
+            # Extract the actual task from the instruction (strip the [CHECK MODE] prefix)
+            raw_instruction = self._system_prompt_context.get("user_instructions", "") or ""
+            user_instruction = raw_instruction.replace("[CHECK MODE] Perform ONLY this single task: ", "").strip()
+
+            result = env.get_template(template_name).render(
                 get_tools_prompt=get_tools_prompt,
                 loaded_skill_names=list(skill_content.keys()),
                 interactive=self.config.interactive,
                 system_prompt_context=self._system_prompt_context,
+                check_mode=check_mode,
+                user_instruction=user_instruction,
                 **skill_content,
             )
             return str(result)
@@ -199,9 +228,13 @@ class LLM:
         )
 
         async_iter = response.__aiter__()
+        # Use a longer per-chunk timeout for local thinking models — they can
+        # take 30-60s between tokens when reasoning. The overall request timeout
+        # still applies via asyncio.wait_for on the full acompletion call above.
+        chunk_timeout = max(timeout, 120)
         while True:
             try:
-                chunk = await asyncio.wait_for(async_iter.__anext__(), timeout=timeout)
+                chunk = await asyncio.wait_for(async_iter.__anext__(), timeout=chunk_timeout)
             except StopAsyncIteration:
                 break
             chunks.append(chunk)
@@ -280,13 +313,24 @@ class LLM:
             "messages": messages,
             "timeout": self.config.timeout,
             "stream_options": {"include_usage": True},
+            # Cap output to prevent runaway generation and context explosion
+            "max_tokens": int(Config.get("strix_max_output_tokens") or "2048"),
         }
 
         if self.config.api_key:
             args["api_key"] = self.config.api_key
         if self.config.api_base:
             args["api_base"] = self.config.api_base
-        if self._supports_reasoning():
+
+        # Only add reasoning_effort for models that truly support it (Anthropic Claude / OpenAI o-series).
+        # Local models via LM Studio / Ollama do NOT support this parameter and it causes
+        # infinite thinking loops and mid-stream client disconnects.
+        is_local = bool(self.config.api_base and (
+            "127.0.0.1" in self.config.api_base
+            or "localhost" in self.config.api_base
+            or "ollama" in self.config.api_base
+        ))
+        if self._supports_reasoning() and not is_local:
             args["reasoning_effort"] = self._reasoning_effort
 
         return args

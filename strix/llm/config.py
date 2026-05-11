@@ -15,6 +15,7 @@ class LLMConfig:
         scan_mode: str = "deep",
         is_whitebox: bool = False,
         interactive: bool = False,
+        compact_prompt: bool = False,
         reasoning_effort: str | None = None,
         system_prompt_context: dict[str, Any] | None = None,
     ):
@@ -36,5 +37,6 @@ class LLMConfig:
         self.scan_mode = scan_mode if scan_mode in ["quick", "standard", "deep"] else "deep"
         self.is_whitebox = is_whitebox
         self.interactive = interactive
+        self.compact_prompt = compact_prompt or (Config.get("strix_compact_prompt") == "true")
         self.reasoning_effort = reasoning_effort
         self.system_prompt_context = system_prompt_context or {}

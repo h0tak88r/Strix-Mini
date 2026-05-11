@@ -1,276 +1,216 @@
-<p align="center">
-  <a href="https://strix.ai/">
-    <img src="https://github.com/usestrix/.github/raw/main/imgs/cover.png" alt="Strix Banner" width="100%">
-  </a>
-</p>
+# Strix-Mini 🦅
 
-<div align="center">
+> A hardened, single-agent, local-LLM-optimized fork of the [Strix](https://github.com/usestrix/strix-agent) penetration testing framework.
 
-# Strix
-
-### Open-source AI hackers to find and fix your app’s vulnerabilities.
-
-<br/>
-
-
-<a href="https://docs.strix.ai"><img src="https://img.shields.io/badge/Docs-docs.strix.ai-2b9246?style=for-the-badge&logo=gitbook&logoColor=white" alt="Docs"></a>
-<a href="https://strix.ai"><img src="https://img.shields.io/badge/Website-strix.ai-f0f0f0?style=for-the-badge&logoColor=000000" alt="Website"></a>
-[![](https://dcbadge.limes.pink/api/server/strix-ai)](https://discord.gg/strix-ai)
-
-<a href="https://deepwiki.com/usestrix/strix"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
-<a href="https://github.com/usestrix/strix"><img src="https://img.shields.io/github/stars/usestrix/strix?style=flat-square" alt="GitHub Stars"></a>
-<a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-3b82f6?style=flat-square" alt="License"></a>
-<a href="https://pypi.org/project/strix-agent/"><img src="https://img.shields.io/pypi/v/strix-agent?style=flat-square" alt="PyPI Version"></a>
-
-
-<a href="https://discord.gg/strix-ai"><img src="https://github.com/usestrix/.github/raw/main/imgs/Discord.png" height="40" alt="Join Discord"></a>
-<a href="https://x.com/strix_ai"><img src="https://github.com/usestrix/.github/raw/main/imgs/X.png" height="40" alt="Follow on X"></a>
-
-
-<a href="https://trendshift.io/repositories/15362" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15362" alt="usestrix/strix | Trendshift" width="250" height="55"/></a>
-
-</div>
-
-
-> [!TIP]
-> **New!** Strix integrates seamlessly with GitHub Actions and CI/CD pipelines. Automatically scan for vulnerabilities on every pull request and block insecure code before it reaches production - [Get started with no setup required](https://app.strix.ai).
+Strix-Mini strips out the multi-agent overhead, compacts the system prompt, enforces tool-first workflows, and adds targeted single-check mode — making it practical to run full pentest automation with local models like **Gemma 4**, **Qwen 2.5**, or **DeepSeek** via LM Studio or Ollama.
 
 ---
 
+## What's Different from Upstream
 
-## Strix Overview
-
-Strix are autonomous AI agents that act just like real hackers - they run your code dynamically, find vulnerabilities, and validate them through actual proof-of-concepts. Built for developers and security teams who need fast, accurate security testing without the overhead of manual pentesting or the false positives of static analysis tools.
-
-**Key Capabilities:**
-
-- **Full hacker toolkit** out of the box
-- **Teams of agents** that collaborate and scale
-- **Real validation** with PoCs, not false positives
-- **Developer‑first** CLI with actionable reports
-- **Auto‑fix & reporting** to accelerate remediation
-
-
-<br>
-
-
-<div align="center">
-  <a href="https://strix.ai">
-    <img src=".github/screenshot.png" alt="Strix Demo" width="1000" style="border-radius: 16px;">
-  </a>
-</div>
-
-
-## Use Cases
-
-- **Application Security Testing** - Detect and validate critical vulnerabilities in your applications
-- **Rapid Penetration Testing** - Get penetration tests done in hours, not weeks, with compliance reports
-- **Bug Bounty Automation** - Automate bug bounty research and generate PoCs for faster reporting
-- **CI/CD Integration** - Run tests in CI/CD to block vulnerabilities before reaching production
-
-## 🚀 Quick Start
-
-**Prerequisites:**
-- Docker (running)
-- An LLM API key from any [supported provider](https://docs.strix.ai/llm-providers/overview) (OpenAI, Anthropic, Google, etc.)
-
-### Installation & First Scan
-
-```bash
-# Install Strix
-curl -sSL https://strix.ai/install | bash
-
-# Configure your AI provider
-export STRIX_LLM="openai/gpt-5.4"
-export LLM_API_KEY="your-api-key"
-
-# Run your first security assessment
-strix --target ./app-directory
-```
-
-> [!NOTE]
-> First run automatically pulls the sandbox Docker image. Results are saved to `strix_runs/<run-name>`
+| Feature | Upstream Strix | Strix-Mini |
+|---|---|---|
+| Agent model | Multi-agent (spawns subagents) | **Single-agent enforced** |
+| System prompt | ~500 lines verbose | **Compact Jinja template** |
+| LLM target | Cloud APIs (Claude, GPT) | **Local models via LM Studio** |
+| HTTP testing | Writes `python requests` scripts | **Prefers `curl` via terminal_execute** |
+| Scan modes | Full pentest only | **Full pentest + `--check` single-task mode** |
+| Clipboard (macOS) | Broken in terminal | **Fixed via `pbcopy`** |
+| Thinking display | Only `<think>` tags stripped | **Strips Gemma/DeepSeek/Qwen/all formats** |
+| Docker | Silent fallback to local | **Fails loudly if SSH host unreachable** |
+| Token usage | ~3M+ per scan | **~100-200K per scan** |
 
 ---
 
-## ☁️ Strix Platform
+## Installation
 
-Try the Strix full-stack security platform at **[app.strix.ai](https://app.strix.ai)** — sign up for free, connect your repos and domains, and launch a pentest in minutes.
+```bash
+git clone https://github.com/h0tak88r/Strix-Mini.git
+cd Strix-Mini
+pip install -e .
+```
 
-- **Validated findings with PoCs** and reproduction steps
-- **One-click autofix** as ready-to-merge pull requests
-- **Continuous monitoring** across code, cloud, and infrastructure
-- **Integrations** with GitHub, Slack, Jira, Linear, and CI/CD pipelines
-- **Continuous learning** that builds on past findings and remediations
+### Requirements
 
-[**Start your first pentest →**](https://app.strix.ai)
+- Python 3.11+
+- Docker (local or remote via SSH)
+- [LM Studio](https://lmstudio.ai) or Ollama running locally
+- SSH key loaded: `ssh-add ~/.ssh/id_rsa`
 
 ---
 
-## ✨ Features
+## Configuration
 
-### Agentic Security Tools
+Copy and edit `cli-config.json`:
 
-Strix agents come equipped with a comprehensive security testing toolkit:
+```json
+{
+  "env": {
+    "DOCKER_HOST": "ssh://user@your-vps-ip",
+    "LLM_API_BASE": "http://127.0.0.1:1234/v1",
+    "STRIX_LLM": "openai/google/gemma-4-26b-a4b",
+    "LLM_API_KEY": "not-needed",
+    "STRIX_SINGLE_AGENT": "true",
+    "STRIX_COMPACT_PROMPT": "true",
+    "LLM_TIMEOUT": "600",
+    "STRIX_MAX_OUTPUT_TOKENS": "2048"
+  }
+}
+```
 
-- **Full HTTP Proxy** - Full request/response manipulation and analysis
-- **Browser Automation** - Multi-tab browser for testing of XSS, CSRF, auth flows
-- **Terminal Environments** - Interactive shells for command execution and testing
-- **Python Runtime** - Custom exploit development and validation
-- **Reconnaissance** - Automated OSINT and attack surface mapping
-- **Code Analysis** - Static and dynamic analysis capabilities
-- **Knowledge Management** - Structured findings and attack documentation
-
-### Comprehensive Vulnerability Detection
-
-Strix can identify and validate a wide range of security vulnerabilities:
-
-- **Access Control** - IDOR, privilege escalation, auth bypass
-- **Injection Attacks** - SQL, NoSQL, command injection
-- **Server-Side** - SSRF, XXE, deserialization flaws
-- **Client-Side** - XSS, prototype pollution, DOM vulnerabilities
-- **Business Logic** - Race conditions, workflow manipulation
-- **Authentication** - JWT vulnerabilities, session management
-- **Infrastructure** - Misconfigurations, exposed services
-
-### Graph of Agents
-
-Advanced multi-agent orchestration for comprehensive security testing:
-
-- **Distributed Workflows** - Specialized agents for different attacks and assets
-- **Scalable Testing** - Parallel execution for fast comprehensive coverage
-- **Dynamic Coordination** - Agents collaborate and share discoveries
+> **Note:** Always run `ssh-add ~/.ssh/id_rsa` before starting if using a remote Docker host.
 
 ---
 
-## Usage Examples
+## Usage
 
-### Basic Usage
-
-```bash
-# Scan a local codebase
-strix --target ./app-directory
-
-# Security review of a GitHub repository
-strix --target https://github.com/org/repo
-
-# Black-box web application assessment
-strix --target https://your-app.com
-```
-
-### Advanced Testing Scenarios
+### Full Pentest (TUI mode)
 
 ```bash
-# Grey-box authenticated testing
-strix --target https://your-app.com --instruction "Perform authenticated testing using credentials: user:pass"
-
-# Multi-target testing (source code + deployed app)
-strix -t https://github.com/org/app -t https://your-app.com
-
-# White-box source-aware scan (local repository)
-strix --target ./app-directory --scan-mode standard
-
-# Focused testing with custom instructions
-strix --target api.your-app.com --instruction "Focus on business logic flaws and IDOR vulnerabilities"
-
-# Provide detailed instructions through file (e.g., rules of engagement, scope, exclusions)
-strix --target api.your-app.com --instruction-file ./instruction.md
-
-# Force PR diff-scope against a specific base branch
-strix -n --target ./ --scan-mode quick --scope-mode diff --diff-base origin/main
+export PYTHONPATH=$PYTHONPATH:.
+python3 strix/interface/main.py \
+  --target "https://target.com/" \
+  --config cli-config.json
 ```
 
-### Headless Mode
-
-Run Strix programmatically without interactive UI using the `-n/--non-interactive` flag—perfect for servers and automated jobs. The CLI prints real-time vulnerability findings, and the final report before exiting. Exits with non-zero code when vulnerabilities are found.
+### Full Pentest (Non-interactive / CLI mode)
 
 ```bash
-strix -n --target https://your-app.com
+python3 strix/interface/main.py \
+  --target "https://target.com/" \
+  --config cli-config.json \
+  --non-interactive
 ```
 
-### CI/CD (GitHub Actions)
+### ⚡ Single Check Mode (`--check`)
 
-Strix can be added to your pipeline to run a security test on pull requests with a lightweight GitHub Actions workflow:
-
-```yaml
-name: strix-penetration-test
-
-on:
-  pull_request:
-
-jobs:
-  security-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Install Strix
-        run: curl -sSL https://strix.ai/install | bash
-
-      - name: Run Strix
-        env:
-          STRIX_LLM: ${{ secrets.STRIX_LLM }}
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-
-        run: strix -n -t ./ --scan-mode quick
-```
-
-> [!TIP]
-> In CI pull request runs, Strix automatically scopes quick reviews to changed files.
-> If diff-scope cannot resolve, ensure checkout uses full history (`fetch-depth: 0`) or pass
-> `--diff-base` explicitly.
-
-### Configuration
+Run **one targeted test** instead of a full pentest workflow. The agent does exactly the task you specify, reports success/failure, and stops immediately.
 
 ```bash
-export STRIX_LLM="openai/gpt-5.4"
-export LLM_API_KEY="your-api-key"
+# Test for SSRF
+python3 strix/interface/main.py \
+  --target "https://app.com/" \
+  --config cli-config.json \
+  --check "test if /api/validate-url is vulnerable to SSRF using http://169.254.169.254/"
 
-# Optional
-export LLM_API_BASE="your-api-base-url"  # if using a local model, e.g. Ollama, LMStudio
-export PERPLEXITY_API_KEY="your-api-key"  # for search capabilities
-export STRIX_REASONING_EFFORT="high"  # control thinking effort (default: high, quick scan: medium)
+# Test for XSS
+python3 strix/interface/main.py \
+  --target "https://app.com/" \
+  --config cli-config.json \
+  --check "test XSS on /search?q= parameter"
+
+# Test for IDOR
+python3 strix/interface/main.py \
+  --target "https://app.com/" \
+  --config cli-config.json \
+  --check "check if /api/users/{id} has IDOR between accounts"
 ```
 
-> [!NOTE]
-> Strix automatically saves your configuration to `~/.strix/cli-config.json`, so you don't have to re-enter it on every run.
+In check mode the agent:
+1. Runs the check directly — no recon phases, no todo list
+2. Validates the result with one confirmation step
+3. Files a `create_vulnerability_report` if vulnerable, or calls `finish_scan` with "not found"
+4. Stops completely
 
-**Recommended models for best results:**
+---
 
-- [OpenAI GPT-5.4](https://openai.com/api/) — `openai/gpt-5.4`
-- [Anthropic Claude Sonnet 4.6](https://claude.com/platform/api) — `anthropic/claude-sonnet-4-6`
-- [Google Gemini 3 Pro Preview](https://cloud.google.com/vertex-ai) — `vertex_ai/gemini-3-pro-preview`
+## Optimizations Made
 
-See the [LLM Providers documentation](https://docs.strix.ai/llm-providers/overview) for all supported providers including Vertex AI, Bedrock, Azure, and local models.
+### 1. Single-Agent Enforcement
+`create_agent` is hard-blocked in `agents_graph_actions.py`. The `STRIX_SINGLE_AGENT=true` flag prevents any subagent spawning at the code level, not just the prompt level.
 
-## Enterprise
+### 2. Compact System Prompt
+`system_prompt_compact.jinja` replaces the 500-line verbose prompt with a ~100-line focused template that:
+- Has explicit tool priority (curl > execute_skill > python)
+- Forbids writing Python for HTTP requests
+- Enforces `finish_scan` with one line instead of an essay
+- Has a `check_mode` branch for `--check` flag
 
-Get the same Strix experience with [enterprise-grade](https://strix.ai/demo) controls: SSO (SAML/OIDC), custom compliance reports, dedicated support & SLA, custom deployment options (VPC/self-hosted), BYOK model support, and tailored agents optimized for your environment. [Learn more](https://strix.ai/demo).
+### 3. Tool Priority Hierarchy
+The agent is explicitly instructed to prefer:
+```
+1. terminal_execute  (curl, httpx, nmap, nuclei)
+2. execute_skill     (pre-built security scripts)
+3. browser_action    (JS-rendering only)
+4. python            (data processing only)
+```
+Writing `python requests` for HTTP calls is **explicitly forbidden** in the prompt.
 
-## Documentation
+### 4. LM Studio Timeout Fixes
+- Per-chunk timeout raised to `max(LLM_TIMEOUT, 120)` seconds to prevent mid-stream disconnects during thinking
+- `reasoning_effort` parameter skipped for local models (127.0.0.1 / localhost) — it caused infinite thinking loops with Gemma
+- `max_tokens=2048` cap prevents runaway generation
 
-Full documentation is available at **[docs.strix.ai](https://docs.strix.ai)** — including detailed guides for usage, CI/CD integrations, skills, and advanced configuration.
+### 5. Gemma 4 Thinking Tag Stripping
+The streaming parser and LLM response cleaner now strip all thinking formats:
+- `<think>` / `<thinking>` — DeepSeek, Qwen
+- `<thought>` — Gemma 4 variant
+- `<|channel>` — Gemma 4 channel blocks
 
-## Contributing
+### 6. Remote Docker Hardening
+`check_docker_connection()` in `utils.py` now:
+- Prints the active Docker host at startup
+- Fails immediately with an actionable error if the SSH host is unreachable
+- No longer silently falls back to local Docker
 
-We welcome contributions of code, docs, and new skills - check out our [Contributing Guide](https://docs.strix.ai/contributing) to get started or open a [pull request](https://github.com/usestrix/strix/pulls)/[issue](https://github.com/usestrix/strix/issues).
+### 7. macOS Clipboard Fix
+`copy_to_clipboard()` overridden in `StrixTUIApp` to use `pbcopy` on macOS via subprocess, bypassing Textual's broken internal clipboard.
 
-## Join Our Community
+### 8. Operations Log Panel
+New left-side panel in the TUI showing real-time tool operations:
+- ✓ green = success, ● yellow = running, ✗ red = failed
+- Shows tool name, key argument preview, error snippet on failure
+- Layout: `[Ops Log 20%] | [Chat 60%] | [Agents/Vulns 20%]`
 
-Have questions? Found a bug? Want to contribute? **[Join our Discord!](https://discord.gg/strix-ai)**
+---
 
-## Support the Project
+## Custom Skills
 
-**Love Strix?** Give us a ⭐ on GitHub!
+Pre-built attack scripts live in `strix/skills/custom/`. The agent calls them via `execute_skill` instead of writing Python from scratch.
 
-## Acknowledgements
+Current skills:
+- `testing-for-xss-vulnerabilities` → `scripts/xss_scanner.py`
+- `directory-enumeration` → `scripts/dir_fuzzer.py`
 
-Strix builds on the incredible work of open-source projects like [LiteLLM](https://github.com/BerriAI/litellm), [Caido](https://github.com/caido/caido), [Nuclei](https://github.com/projectdiscovery/nuclei), [Playwright](https://github.com/microsoft/playwright), and [Textual](https://github.com/Textualize/textual). Huge thanks to their maintainers!
+### Adding a Skill
 
+```
+strix/skills/custom/
+└── my-skill-name/
+    ├── skill.md          # Skill description loaded into system prompt
+    └── scripts/
+        └── my_script.py  # Script the agent runs via execute_skill
+```
 
-> [!WARNING]
-> Only test apps you own or have permission to test. You are responsible for using Strix ethically and legally.
+---
 
-</div>
+## Environment Variables Reference
+
+| Variable | Default | Description |
+|---|---|---|
+| `STRIX_LLM` | — | LiteLLM model name (required) |
+| `LLM_API_BASE` | — | Local LLM server URL |
+| `LLM_API_KEY` | — | API key (use "not-needed" for local) |
+| `DOCKER_HOST` | local | Docker host (`ssh://user@host`) |
+| `STRIX_SINGLE_AGENT` | false | Disable subagent spawning |
+| `STRIX_COMPACT_PROMPT` | false | Use compact system prompt |
+| `LLM_TIMEOUT` | 300 | LLM request timeout in seconds |
+| `STRIX_MAX_OUTPUT_TOKENS` | 2048 | Max tokens per LLM response |
+| `STRIX_CHECK_MODE` | false | Single-task mode (set by `--check`) |
+
+---
+
+## Tested Models
+
+| Model | Works? | Notes |
+|---|---|---|
+| `google/gemma-4-26b-a4b` | ✅ | Best local results. Use `STRIX_COMPACT_PROMPT=true` |
+| `qwen2.5-coder-14b` | ✅ | Good tool following |
+| `deepseek-r1-7b` | ⚠️ | Thinking loops without token cap |
+| Claude Sonnet 3.7 | ✅ | Original target model |
+
+---
+
+## License
+
+This is a fork/optimization of [Strix Agent](https://github.com/usestrix/strix-agent). Original license applies.

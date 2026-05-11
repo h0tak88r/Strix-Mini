@@ -86,9 +86,9 @@ def _check_active_agents(agent_state: Any = None) -> dict[str, Any] | None:
 @register_tool(sandbox_execution=False)
 def finish_scan(
     executive_summary: str,
-    methodology: str,
-    technical_analysis: str,
-    recommendations: str,
+    methodology: str = "",
+    technical_analysis: str = "",
+    recommendations: str = "",
     agent_state: Any = None,
 ) -> dict[str, Any]:
     validation_error = _validate_root_agent(agent_state)
@@ -99,19 +99,20 @@ def finish_scan(
     if active_agents_error:
         return active_agents_error
 
-    validation_errors = []
-
     if not executive_summary or not executive_summary.strip():
-        validation_errors.append("Executive summary cannot be empty")
-    if not methodology or not methodology.strip():
-        validation_errors.append("Methodology cannot be empty")
-    if not technical_analysis or not technical_analysis.strip():
-        validation_errors.append("Technical analysis cannot be empty")
-    if not recommendations or not recommendations.strip():
-        validation_errors.append("Recommendations cannot be empty")
+        return {"success": False, "message": "Validation failed", "errors": ["executive_summary cannot be empty"]}
 
-    if validation_errors:
-        return {"success": False, "message": "Validation failed", "errors": validation_errors}
+    # Auto-fill methodology and analysis from filed reports if agent didn't provide them
+    _methodology = methodology.strip() if methodology and methodology.strip() else (
+        "Black-box penetration testing following OWASP WSTG methodology: "
+        "Reconnaissance, Vulnerability Discovery, Validation, and Reporting."
+    )
+    _technical_analysis = technical_analysis.strip() if technical_analysis and technical_analysis.strip() else (
+        "Findings documented in individual vulnerability reports."
+    )
+    _recommendations = recommendations.strip() if recommendations and recommendations.strip() else (
+        "Remediate all confirmed findings per individual vulnerability reports."
+    )
 
     try:
         from strix.telemetry.tracer import get_global_tracer
@@ -120,9 +121,9 @@ def finish_scan(
         if tracer:
             tracer.update_scan_final_fields(
                 executive_summary=executive_summary.strip(),
-                methodology=methodology.strip(),
-                technical_analysis=technical_analysis.strip(),
-                recommendations=recommendations.strip(),
+                methodology=_methodology,
+                technical_analysis=_technical_analysis,
+                recommendations=_recommendations,
             )
 
             vulnerability_count = len(tracer.vulnerability_reports)

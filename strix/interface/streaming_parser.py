@@ -14,6 +14,20 @@ _FUNC_END_PATTERN = re.compile(r"</function>")
 _COMPLETE_PARAM_PATTERN = re.compile(r"<parameter=([^>]+)>(.*?)</parameter>", re.DOTALL)
 _INCOMPLETE_PARAM_PATTERN = re.compile(r"<parameter=([^>]+)>(.*)$", re.DOTALL)
 
+# Strip thinking/reasoning blocks from all model formats before TUI display:
+#   <think> / <thinking>     — DeepSeek, Qwen
+#   <thought>                — Gemma 4 variant
+#   <|channel> </|channel>   — Gemma 4 channel blocks (shown as raw in screenshot)
+_THINKING_STRIP_RE = re.compile(
+    r"(?:"
+    r"<think(?:ing)?[^>]*>.*?(?:</think(?:ing)?>|$)"
+    r"|<thought[^>]*>.*?(?:</thought>|$)"
+    r"|<[|]channel\b[^>]*>.*?(?:</[|]?channel[|]?>|$)"
+    r"|[|]channel[|].*?(?:[|]/channel[|]|$)"
+    r")",
+    re.DOTALL | re.IGNORECASE,
+)
+
 
 def _get_safe_content(content: str) -> tuple[str, str]:
     if not content:
@@ -43,6 +57,9 @@ class StreamSegment:
 def parse_streaming_content(content: str) -> list[StreamSegment]:
     if not content:
         return []
+
+    # Strip thinking/reasoning blocks before rendering
+    content = _THINKING_STRIP_RE.sub("", content).lstrip("\n")
 
     content = normalize_tool_format(content)
 

@@ -7,9 +7,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from strix.config import Config
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
@@ -1349,28 +1352,77 @@ def clone_repository(repo_url: str, run_name: str, dest_name: str | None = None)
 
 # Docker utilities
 def check_docker_connection() -> Any:
-    try:
-        return docker.from_env()
-    except DockerException:
-        console = Console()
-        error_text = Text()
-        error_text.append("DOCKER NOT AVAILABLE", style="bold red")
-        error_text.append("\n\n", style="white")
-        error_text.append("Cannot connect to Docker daemon.\n", style="white")
-        error_text.append(
-            "Please ensure Docker Desktop is installed and running, and try running strix again.\n",
-            style="white",
-        )
+    # Ensure DOCKER_HOST is propagated from config
+    config_docker_host = Config.get("docker_host")
+    if config_docker_host and not os.getenv("DOCKER_HOST"):
+        os.environ["DOCKER_HOST"] = config_docker_host
 
-        panel = Panel(
-            error_text,
-            title="[bold white]STRIX",
-            title_align="left",
-            border_style="red",
-            padding=(1, 2),
-        )
-        console.print("\n", panel, "\n")
-        raise RuntimeError("Docker not available") from None
+    active_host = config_docker_host or os.getenv("DOCKER_HOST") or "local (unix socket)"
+    
+    # Always print which Docker host we are connecting to — this makes it obvious
+    console = Console()
+    console.print(f"[bold cyan]🐳 Docker host:[/bold cyan] [white]{active_host}[/white]")
+
+    max_retries = 3
+    last_error = None
+
+    for attempt in range(max_retries):
+        try:
+            if config_docker_host and config_docker_host.startswith("ssh://"):
+                # SSH remote host — use native ssh client, never fall back to local
+                client = docker.DockerClient(
+                    base_url=config_docker_host, use_ssh_client=True, timeout=30
+                )
+                # Verify it actually connected to the right host
+                info = client.info()
+                remote_hostname = info.get("Name", "unknown")
+                console.print(
+                    f"[bold green]✓ Connected to remote Docker:[/bold green] [white]{remote_hostname}[/white]"
+                )
+                return client
+            else:
+                # Local Docker
+                client = docker.from_env(timeout=30)
+                info = client.info()
+                console.print(
+                    f"[bold yellow]⚠ Connected to LOCAL Docker:[/bold yellow] [white]{info.get('Name', 'local')}[/white]"
+                )
+                return client
+
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                console.print(
+                    f"[yellow]Docker connection attempt {attempt + 1}/{max_retries} failed, retrying...[/yellow]"
+                )
+                time.sleep(2)
+                continue
+
+            error_text = Text()
+            error_text.append("DOCKER CONNECTION FAILED", style="bold red")
+            error_text.append("\n\n", style="white")
+            error_text.append(f"Target host: {active_host}\n", style="white")
+            error_text.append(f"Error after {max_retries} attempts: {last_error!s}\n", style="dim red")
+
+            if config_docker_host and config_docker_host.startswith("ssh://"):
+                error_text.append(
+                    "\nSSH Tips:\n"
+                    "  1. Test manually: ssh sallam@167.86.80.22 'docker ps'\n"
+                    "  2. Add key to agent: ssh-add ~/.ssh/id_rsa\n"
+                    "  3. Check SSH known_hosts: ssh-keyscan 167.86.80.22 >> ~/.ssh/known_hosts\n",
+                    style="white",
+                )
+
+            panel = Panel(
+                error_text,
+                title="[bold white]STRIX",
+                title_align="left",
+                border_style="red",
+                padding=(1, 2),
+            )
+            console.print("\n", panel, "\n")
+            raise RuntimeError(f"Docker connection failed: {last_error}") from None
+
 
 
 def image_exists(client: Any, image_name: str) -> bool:

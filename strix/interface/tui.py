@@ -2,7 +2,9 @@ import argparse
 import asyncio
 import atexit
 import logging
+import platform
 import signal
+import subprocess
 import sys
 import threading
 from collections.abc import Callable
@@ -638,6 +640,94 @@ class VulnerabilitiesPanel(VerticalScroll):  # type: ignore[misc]
             self.mount(item)
 
 
+class OpsLogPanel(VerticalScroll):  # type: ignore[misc]
+    """Left-side panel showing a live log of tool operations and their success/failure."""
+
+    TOOL_ICONS: ClassVar[dict[str, str]] = {
+        "terminal_execute": "⬛",
+        "python": "🐍",
+        "python_action": "🐍",
+        "execute_skill": "⚡",
+        "web_search": "🔍",
+        "browser_action": "🌐",
+        "create_vulnerability_report": "🐛",
+        "finish_scan": "✅",
+        "create_agent": "🤖",
+        "read_file": "📄",
+        "write_file": "📝",
+    }
+
+    STATUS_STYLE: ClassVar[dict[str, tuple[str, str]]] = {
+        "completed": ("✓", "#22c55e"),
+        "running":   ("●", "#facc15"),
+        "failed":    ("✗", "#ef4444"),
+        "error":     ("✗", "#ef4444"),
+    }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._last_count: int = 0
+
+    def compose(self) -> ComposeResult:
+        yield Static("", id="ops_log_header")
+        yield Static("", id="ops_log_content")
+
+    def on_mount(self) -> None:
+        header = self.query_one("#ops_log_header", Static)
+        t = Text()
+        t.append(" Operations Log ", style="bold white on #1a1a2e")
+        header.update(t)
+
+    def refresh_log(self, tool_executions: dict[str, Any]) -> None:
+        """Re-render the ops log from the current tracer.tool_executions dict."""
+        if len(tool_executions) == self._last_count:
+            return
+        self._last_count = len(tool_executions)
+
+        text = Text()
+        for exec_id, td in list(tool_executions.items()):
+            tool_name = td.get("tool_name", "unknown")
+            status = td.get("status", "running")
+            icon = self.TOOL_ICONS.get(tool_name, "🔧")
+            status_char, status_color = self.STATUS_STYLE.get(status, ("●", "#facc15"))
+
+            text.append(f"{status_char} ", style=status_color)
+            text.append(f"{icon} ", style="")
+            text.append(tool_name, style="bold #93c5fd")
+
+            # Show the most useful arg as a one-liner hint
+            args = td.get("args") or {}
+            hint = ""
+            for key in ("command", "url", "skill_name", "query", "code", "action", "task"):
+                if key in args:
+                    val = str(args[key])[:48]
+                    hint = f" {val}"
+                    break
+            if hint:
+                text.append(hint, style="dim #a1a1aa")
+
+            # Show error snippet on failure
+            if status in ("failed", "error"):
+                result = td.get("result") or {}
+                err = ""
+                if isinstance(result, dict):
+                    err = str(result.get("error") or result.get("message") or "")[:60]
+                elif isinstance(result, str):
+                    err = result[:60]
+                if err:
+                    text.append(f"\n  → {err}", style="#ef4444")
+
+            text.append("\n")
+
+        try:
+            content = self.query_one("#ops_log_content", Static)
+            content.update(text)
+            self.scroll_end(animate=False)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+
 class QuitScreen(ModalScreen):  # type: ignore[misc]
     def compose(self) -> ComposeResult:
         yield Grid(
@@ -780,6 +870,32 @@ class StrixTUIApp(App):  # type: ignore[misc]
         if hasattr(signal, "SIGHUP"):
             signal.signal(signal.SIGHUP, signal_handler)
 
+    def copy_to_clipboard(self, text: str) -> None:
+        """Copy text to clipboard — uses pbcopy on macOS, xclip/xsel on Linux."""
+        try:
+            if platform.system() == "Darwin":
+                subprocess.run(
+                    ["pbcopy"],
+                    input=text.encode("utf-8"),
+                    check=True,
+                    timeout=3,
+                )
+                return
+            elif platform.system() == "Linux":
+                for cmd in (["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"]):
+                    try:
+                        subprocess.run(cmd, input=text.encode("utf-8"), check=True, timeout=3)
+                        return
+                    except (FileNotFoundError, subprocess.CalledProcessError):
+                        continue
+        except Exception:  # noqa: BLE001
+            pass
+        # Final fallback: Textual's built-in (works in some environments)
+        try:
+            super().copy_to_clipboard(text)
+        except Exception:  # noqa: BLE001
+            pass
+
     def compose(self) -> ComposeResult:
         if self.show_splash:
             yield SplashScreen(id="splash_screen")
@@ -837,8 +953,11 @@ class StrixTUIApp(App):  # type: ignore[misc]
 
             vulnerabilities_panel = VulnerabilitiesPanel(id="vulnerabilities_panel")
 
+            ops_log_panel = OpsLogPanel(id="ops_log_panel")
+
             sidebar = Vertical(agents_tree, vulnerabilities_panel, stats_scroll, id="sidebar")
 
+            content_container.mount(ops_log_panel)
             content_container.mount(chat_area_container)
             content_container.mount(sidebar)
 
@@ -930,6 +1049,17 @@ class StrixTUIApp(App):  # type: ignore[misc]
         self._update_stats_display()
 
         self._update_vulnerabilities_panel()
+
+        self._update_ops_log_panel()
+
+    def _update_ops_log_panel(self) -> None:
+        """Refresh the operations log panel from tracer data."""
+        try:
+            ops_panel = self.query_one("#ops_log_panel", OpsLogPanel)
+            if self._is_widget_safe(ops_panel):
+                ops_panel.refresh_log(self.tracer.tool_executions)
+        except (ValueError, Exception):
+            pass
 
     def _update_agent_node(self, agent_id: str, agent_data: dict[str, Any]) -> bool:
         if agent_id not in self.agent_nodes:

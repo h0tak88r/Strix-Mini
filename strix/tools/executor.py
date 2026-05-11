@@ -8,8 +8,9 @@ from strix.config import Config
 from strix.telemetry import posthog
 
 
-if os.getenv("STRIX_SANDBOX_MODE", "false").lower() == "false":
-    from strix.runtime import get_runtime
+from strix.runtime import get_runtime
+
+sandbox_mode = Config.get("strix_sandbox_mode") == "true"
 
 from .argument_parser import convert_arguments
 from .registry import (
@@ -28,9 +29,8 @@ SANDBOX_CONNECT_TIMEOUT = float(Config.get("strix_sandbox_connect_timeout") or "
 
 async def execute_tool(tool_name: str, agent_state: Any | None = None, **kwargs: Any) -> Any:
     execute_in_sandbox = should_execute_in_sandbox(tool_name)
-    sandbox_mode = os.getenv("STRIX_SANDBOX_MODE", "false").lower() == "true"
-
-    if execute_in_sandbox and not sandbox_mode:
+    sandbox_id = getattr(agent_state, "sandbox_id", None)
+    if execute_in_sandbox and (sandbox_mode or sandbox_id):
         return await _execute_tool_in_sandbox(tool_name, agent_state, **kwargs)
 
     return await _execute_tool_locally(tool_name, agent_state, **kwargs)

@@ -112,6 +112,42 @@ Toast.-information .toast--title {
     display: none;
 }
 
+#ops_log_panel {
+    width: 20%;
+    min-width: 24;
+    height: 100%;
+    background: #050505;
+    border: round #1a1a2e;
+    border-right: solid #1e1e3f;
+    padding: 0;
+    margin: 0;
+    margin-right: 1;
+    overflow-y: auto;
+    scrollbar-background: #000000;
+    scrollbar-color: #1a1a2e;
+    scrollbar-corner-color: #000000;
+    scrollbar-size-vertical: 1;
+}
+
+#ops_log_header {
+    width: 100%;
+    height: auto;
+    background: #0d0d1a;
+    color: #6366f1;
+    text-style: bold;
+    text-align: center;
+    padding: 0 1;
+    border-bottom: solid #1e1e3f;
+}
+
+#ops_log_content {
+    width: 100%;
+    height: auto;
+    background: transparent;
+    padding: 1;
+    color: #d4d4d4;
+}
+
 .vuln-item {
     height: auto;
     width: 100%;
@@ -205,7 +241,7 @@ VulnerabilityDetailScreen {
 }
 
 #chat_area_container {
-    width: 80%;
+    width: 60%;
     background: transparent;
 }
 

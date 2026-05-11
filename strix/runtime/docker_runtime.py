@@ -27,6 +27,11 @@ CONTAINER_CAIDO_PORT = 48080
 
 class DockerRuntime(AbstractRuntime):
     def __init__(self) -> None:
+        # Propagation of DOCKER_HOST from config
+        config_docker_host = Config.get("docker_host")
+        if config_docker_host and not os.getenv("DOCKER_HOST"):
+            os.environ["DOCKER_HOST"] = config_docker_host
+
         try:
             self.client = docker.from_env(timeout=DOCKER_TIMEOUT)
         except (DockerException, RequestsConnectionError, RequestsTimeout) as e:
@@ -266,6 +271,11 @@ class DockerRuntime(AbstractRuntime):
                     source.get("workspace_subdir") or Path(source_path).name or f"target_{index}"
                 )
                 self._copy_local_directory_to_container(container, source_path, target_name)
+            from strix.utils.resource_paths import get_strix_resource_path
+            skills_dir = get_strix_resource_path("skills")
+            if skills_dir.exists():
+                self._copy_local_directory_to_container(container, str(skills_dir), "skills")
+
             setattr(self, source_copied_key, True)
 
         if container.id is None:
@@ -315,7 +325,8 @@ class DockerRuntime(AbstractRuntime):
             from urllib.parse import urlparse
 
             parsed = urlparse(docker_host)
-            if parsed.scheme in ("tcp", "http", "https") and parsed.hostname:
+            # Handle tcp://, http://, https:// AND ssh://
+            if parsed.scheme in ("tcp", "http", "https", "ssh") and parsed.hostname:
                 return parsed.hostname
         return "127.0.0.1"
 

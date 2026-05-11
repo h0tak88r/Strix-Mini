@@ -22,6 +22,7 @@ class Config:
     strix_llm_max_retries = "5"
     strix_memory_compressor_timeout = "30"
     llm_timeout = "300"
+    strix_max_output_tokens = "2048"
     _LLM_CANONICAL_NAMES = (
         "strix_llm",
         "llm_api_key",
@@ -38,12 +39,16 @@ class Config:
     # Tool & Feature Configuration
     perplexity_api_key = None
     strix_disable_browser = "false"
+    strix_single_agent = "false"
+    strix_compact_prompt = "false"
+    strix_check_mode = "false"
 
     # Runtime Configuration
     strix_image = "ghcr.io/usestrix/strix-sandbox:0.1.13"
     strix_runtime_backend = "docker"
     strix_sandbox_execution_timeout = "120"
     strix_sandbox_connect_timeout = "10"
+    docker_host = None
 
     # Telemetry
     strix_telemetry = "1"

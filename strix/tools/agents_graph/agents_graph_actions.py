@@ -388,6 +388,23 @@ def create_agent(
     inherit_context: bool = True,
     skills: str | None = None,
 ) -> dict[str, Any]:
+    import os
+    from strix.config import Config
+
+    # Hard enforcement: single-agent mode blocks all subagent creation.
+    # Checks both env var and cli-config.json (via Config.get).
+    if Config.get("strix_single_agent", ).lower() in ("true", "1", "yes"):
+        return {
+            "success": False,
+            "agent_id": None,
+            "error": (
+                "SINGLE_AGENT MODE: Spawning subagents is disabled. "
+                "You MUST perform all work yourself using your available tools "
+                "(terminal_execute, execute_skill, python, web_search, etc.). "
+                "Do NOT attempt create_agent again."
+            ),
+        }
+
     try:
         parent_id = agent_state.agent_id
 

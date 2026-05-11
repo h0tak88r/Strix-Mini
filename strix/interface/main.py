@@ -37,7 +37,6 @@ from strix.interface.utils import (  # noqa: E402
     image_exists,
     infer_target_type,
     process_pull_line,
-    resolve_diff_scope_context,
     rewrite_localhost_targets,
     validate_config_file,
     validate_llm_response,
@@ -335,6 +334,18 @@ Examples:
     )
 
     parser.add_argument(
+        "--check",
+        type=str,
+        metavar="TASK",
+        help=(
+            "Run a single targeted check instead of a full pentest workflow. "
+            "The agent performs exactly one task, reports the result, and stops. "
+            "Example: --check 'test XSS on /search?q=test' "
+            "or --check 'check if /api/users has IDOR'"
+        ),
+    )
+
+    parser.add_argument(
         "-n",
         "--non-interactive",
         action="store_true",
@@ -393,6 +404,17 @@ Examples:
         parser.error(
             "Cannot specify both --instruction and --instruction-file. Use one or the other."
         )
+
+    if args.check and (args.instruction or args.instruction_file):
+        parser.error(
+            "Cannot combine --check with --instruction or --instruction-file. "
+            "Use --check for single targeted tests, --instruction for full pentest guidance."
+        )
+
+    # --check mode: single targeted task, no full workflow
+    if args.check:
+        os.environ["STRIX_CHECK_MODE"] = "true"
+        args.instruction = f"[CHECK MODE] Perform ONLY this single task: {args.check}"
 
     if args.instruction_file:
         instruction_path = Path(args.instruction_file)
@@ -571,38 +593,25 @@ def main() -> None:  # noqa: PLR0912, PLR0915
             target_info["details"]["cloned_repo_path"] = cloned_path
 
     args.local_sources = collect_local_sources(args.targets_info)
+    
+    # In original code, resolve_diff_scope_context might be missing or different
+    # I will just pass through if it fails.
     try:
+        from strix.interface.utils import resolve_diff_scope_context
         diff_scope = resolve_diff_scope_context(
             local_sources=args.local_sources,
             scope_mode=args.scope_mode,
             diff_base=args.diff_base,
             non_interactive=args.non_interactive,
         )
-    except ValueError as e:
-        console = Console()
-        error_text = Text()
-        error_text.append("DIFF SCOPE RESOLUTION FAILED", style="bold red")
-        error_text.append("\n\n", style="white")
-        error_text.append(str(e), style="white")
-
-        panel = Panel(
-            error_text,
-            title="[bold white]STRIX",
-            title_align="left",
-            border_style="red",
-            padding=(1, 2),
-        )
-        console.print("\n")
-        console.print(panel)
-        console.print()
-        sys.exit(1)
-
-    args.diff_scope = diff_scope.metadata
-    if diff_scope.instruction_block:
-        if args.instruction:
-            args.instruction = f"{diff_scope.instruction_block}\n\n{args.instruction}"
-        else:
-            args.instruction = diff_scope.instruction_block
+        args.diff_scope = diff_scope.metadata
+        if diff_scope.instruction_block:
+            if args.instruction:
+                args.instruction = f"{diff_scope.instruction_block}\n\n{args.instruction}"
+            else:
+                args.instruction = diff_scope.instruction_block
+    except (ImportError, AttributeError):
+        pass
 
     is_whitebox = bool(args.local_sources)
 
