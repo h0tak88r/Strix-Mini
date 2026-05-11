@@ -9,7 +9,7 @@
   - Sequential decision making: When each action builds on previous ones and mistakes are costly
   - Multi-step problem solving: When you need to break down complex problems into manageable steps</details>
     <parameters>
-      <parameter name="thought" type="string" required="true">
+      <parameter name="thought" type="string" required="false">
         <description>The thought or reasoning to record</description>
       </parameter>
     </parameters>

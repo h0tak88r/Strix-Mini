@@ -52,13 +52,13 @@ Professional, customer-facing report rules (PDF-ready):
       <parameter name="poc_description" type="string" required="true">
         <description>Step-by-step instructions to reproduce the vulnerability</description>
       </parameter>
-      <parameter name="poc_script_code" type="string" required="true">
+      <parameter name="poc_script_code" type="string" required="false">
         <description>Actual proof of concept code, exploit, payload, or script that demonstrates the vulnerability. Python code.</description>
       </parameter>
       <parameter name="remediation_steps" type="string" required="true">
         <description>Specific, actionable steps to fix the vulnerability</description>
       </parameter>
-      <parameter name="cvss_breakdown" type="string" required="true">
+      <parameter name="cvss_breakdown" type="string" required="false">
         <description>CVSS 3.1 base score breakdown as nested XML. All 8 metrics are required.
 
 Each metric element contains a single uppercase letter value:

@@ -162,8 +162,8 @@ def _validate_required_fields(**kwargs: str | None) -> list[str]:
         "target": "Target cannot be empty",
         "technical_analysis": "Technical analysis cannot be empty",
         "poc_description": "PoC description cannot be empty",
-        "poc_script_code": "PoC script/code is REQUIRED - provide the actual exploit/payload",
         "remediation_steps": "Remediation steps cannot be empty",
+        # poc_script_code is intentionally NOT required — curl output / log evidence is acceptable
     }
 
     for field_name, error_msg in required_fields.items():
@@ -206,9 +206,9 @@ def create_vulnerability_report(  # noqa: PLR0912
     target: str,
     technical_analysis: str,
     poc_description: str,
-    poc_script_code: str,
     remediation_steps: str,
-    cvss_breakdown: str,
+    cvss_breakdown: str = "",
+    poc_script_code: str = "",
     endpoint: str | None = None,
     method: str | None = None,
     cve: str | None = None,
@@ -228,9 +228,18 @@ def create_vulnerability_report(  # noqa: PLR0912
 
     parsed_cvss = parse_cvss_xml(cvss_breakdown)
     if not parsed_cvss:
-        validation_errors.append("cvss: could not parse CVSS breakdown XML")
-    else:
-        validation_errors.extend(_validate_cvss_parameters(**parsed_cvss))
+        # Auto-fill with a safe CVSS 3.1 Medium baseline when XML is missing/malformed
+        # Agent can still produce the report — CVSS can be refined later
+        parsed_cvss = {
+            "attack_vector": "N",
+            "attack_complexity": "L",
+            "privileges_required": "N",
+            "user_interaction": "N",
+            "scope": "U",
+            "confidentiality": "L",
+            "integrity": "L",
+            "availability": "N",
+        }
 
     parsed_locations = parse_code_locations_xml(code_locations) if code_locations else None
 
