@@ -116,23 +116,62 @@ Example:
 </execute_skill_guide>
 
 <tool_priority>
-ALWAYS use the lowest-token tool available. Priority order (top = preferred):
+Choose tools based on whether the target requires authentication:
 
-1. terminal_execute — for ANY HTTP request, port scan, or CLI tool.
-   Use curl/httpx instead of python requests. Examples:
-   - Send a POST:  curl -s -X POST https://target/api -d '{"url":"x"}' -H 'Content-Type: application/json'
-   - SSRF test:    curl -s 'https://target/api/validate-url?url=http://169.254.169.254/latest/meta-data/'
-   - Headers:      curl -si https://target/ | head -30
+── UNAUTHENTICATED endpoints ────────────────────────────────────────────────
+1. terminal_execute  ← curl/httpx for raw HTTP, nmap, nuclei, ffuf
+   Examples:
+   - SSRF:    curl -s 'https://target/api/validate-url?url=http://169.254.169.254/'
+   - Headers: curl -si https://target/ | head -30
 
-2. execute_skill — for known attack patterns (XSS scan, dir brute, etc.). Always prefer over writing Python.
+2. execute_skill ← pre-built scanners (XSS, dir brute, etc.)
 
-3. browser_action — only when the task requires JavaScript rendering or cookie-based auth in a browser.
+── AUTHENTICATED endpoints (PREFERRED workflow) ─────────────────────────────
+When the target requires login, or you already have a browser session:
 
-4. python — ONLY for data processing, parsing results, or crypto operations that cannot be done in bash.
+1. browser_action ← PRIMARY tool. Stay in the browser for ALL steps:
 
-❌ NEVER write a python script that just sends HTTP requests with `requests` or `httpx`.
-   Use `terminal_execute` with curl instead — it uses far fewer tokens and is faster.
-❌ NEVER use python_action. Use terminal_execute or python instead.
+   STEP A — Login once, then STAY in the browser:
+   - Navigate to login page
+   - execute_js to fill credentials and submit
+   - You now have a live authenticated session
+
+   STEP B — Intercept real API calls via execute_js:
+   Inject this at the start of any page to capture all requests:
+   ```
+   window.__requests = [];
+   const orig = window.fetch;
+   window.fetch = async (...a) => { window.__requests.push({type:'fetch', url: a[0], opts: a[1]}); return orig(...a); };
+   const origXHR = window.XMLHttpRequest.prototype.open;
+   window.XMLHttpRequest.prototype.open = function(m,u) { window.__requests.push({type:'xhr',method:m,url:u}); return origXHR.apply(this,arguments); };
+   ```
+   Then navigate to the feature and run: `return JSON.stringify(window.__requests);`
+
+   STEP C — Test SSRF/IDOR by replaying captured requests:
+   - Use execute_js to call fetch() with modified parameters directly in the browser
+   - This keeps session cookies automatically — no need to extract tokens
+   Example for SSRF test:
+   ```
+   const r = await fetch('/api/validate-url', {method:'POST', headers:{'Content-Type':'application/json'},
+     body: JSON.stringify({url: 'http://169.254.169.254/latest/meta-data/'})});
+   return await r.text();
+   ```
+   Example for IDOR test:
+   ```
+   const r = await fetch('/api/users/2', {headers: {'Accept': 'application/json'}});
+   return {status: r.status, body: await r.text()};
+   ```
+
+   STEP D — Validate and note evidence:
+   - Check response status + body in the return value
+   - If confirmed: take a screenshot then call create_vulnerability_report
+
+── GENERAL RULES ────────────────────────────────────────────────────────────
+❌ NEVER switch from browser to curl after logging in — you lose the session.
+❌ NEVER write Python scripts that send HTTP requests. Use browser fetch() or curl.
+❌ NEVER use python_action.
+✅ For curl that needs session cookies, export cookies first:
+   `document.cookie` → use `-H 'Cookie: ...'` in curl (last resort only).
 </tool_priority>
 
 <tool_usage>
